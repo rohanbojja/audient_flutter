@@ -139,7 +139,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   void _sendAudio() async {
     //HTTP POST HERE
     genreList = await getGenreList(_recording.path).whenComplete((){
-      print("DBG-> Got genre list of length ${genreList.accuracies.length}");
+      print("DBG-> Got genre list of length ${genreList.accuracies}");
+      genreList.accuracies.sort((a,b) => double.parse(b.accuracy).compareTo(double.parse(a.accuracy)));
       Navigator.push(context, MaterialPageRoute(builder: (BuildContext context) => new accuraciesPage(),settings:
       RouteSettings(
           arguments: genreList
