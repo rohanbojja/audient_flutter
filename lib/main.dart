@@ -2,6 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:typed_data';
+import 'package:audientflutter/screens/loginPage.dart';
+import 'package:audientflutter/services/auth.dart';
+import 'package:audientflutter/services/global.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:http/http.dart' as http;
 import 'package:audientflutter/models/Genre.dart';
 import 'package:audientflutter/models/GenreList.dart';
@@ -28,7 +33,7 @@ var myTheme = ThemeData(
   // is not restarted.
   brightness: Brightness.dark,
   fontFamily: 'Montserrat',
-  accentColor: Colors.deepPurple,
+  accentColor: Colors.purple,
   primaryColor: Colors.black,
   primarySwatch: Colors.purple,
   cursorColor: Colors.deepPurple,
@@ -41,7 +46,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: myTheme,
-      home: MyHomePage(title: 'Audient'),
+      home: loginPage(),
     );
   }
 }
@@ -66,11 +71,12 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   int _counter = 0;
+  FirebaseUser user;
   final List<Tab> myTabs = <Tab>[
     Tab(text: 'Home'),
     Tab(text: 'Accuracies'),
   ];
-  bool isRecording = true;
+  bool isRecording = false;
   AnimationController _animationController;
   var recorder;
   var recording;
@@ -83,12 +89,31 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     // TODO: implement initState
     super.initState();
     initCust();
+    isRecording = true;
   }
 
   Future<void> initCust() async {
     _animationController = AnimationController(vsync: this,duration: Duration(seconds: 1));
     genreList = GenreList();
     bool hasPermission = await FlutterAudioRecorder.hasPermissions;
+    user = await authService.currentUser();
+    print("DBGauto OHME");
+
+    //Setup auth change listener
+    FirebaseAuth.instance.onAuthStateChanged.listen((user) {
+      showLoader();
+      if (user == null) {
+        Navigator.pop(context);
+        Navigator.push(context, MaterialPageRoute(
+            builder: (BuildContext context) => new loginPage()));
+      }
+      else{
+        setState(() {
+
+        });
+      }
+      Navigator.pop(context);
+    });
   }
 
   Future <GenreList> getGenreList(String _path) async {
@@ -120,12 +145,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
       //For heroku
 
-      var res2 = tmp.substring(2,tmp.length-2).split(",");
-      List<double> myList = List<double>();
-      res2.forEach((f){
-        myList.add(double.parse(f));
-      });
-      var genrelabels = "Blues Classical Country Disco Hiphop Jazz Metal Pop Reggae Rock".split(" ");
+//      var res2 = tmp.substring(2,tmp.length-2).split(",");
+//      List<double> myList = List<double>();
+//      res2.forEach((f){
+//        myList.add(double.parse(f));
+//      });
 
     }
     else{
@@ -135,12 +159,22 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     return genreList;
   }
 
+  void showLoader(){
+    showDialog(context: context, builder: (BuildContext context){
+      return SpinKitPouringHourglass(
+        color: Colors.white,
+        size: 50.0,
+      );
+    });
+  }
 
   void _sendAudio() async {
+    showLoader();
     //HTTP POST HERE
     genreList = await getGenreList(_recording.path).whenComplete((){
-      print("DBG-> Got genre list of length ${genreList.accuracies}");
+      print("DBG-> Got genre list of length ${genreList.accuracies} ${_recording.path}");
       genreList.accuracies.sort((a,b) => double.parse(b.accuracy).compareTo(double.parse(a.accuracy)));
+      Navigator.pop(context);
       Navigator.push(context, MaterialPageRoute(builder: (BuildContext context) => new accuraciesPage(),settings:
       RouteSettings(
           arguments: genreList
@@ -165,7 +199,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
     if(isRecording){
       isRecording = false;
-      String customPath = '/flutter_audio_recorder_';
+      String customPath = '/audient_';
       io.Directory appDocDirectory;
       if (io.Platform.isIOS) {
         appDocDirectory = await getApplicationDocumentsDirectory();
@@ -177,6 +211,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       customPath = appDocDirectory.path +
           customPath +
           DateTime.now().millisecondsSinceEpoch.toString();
+      globalObjects.path = customPath;
+//      customPath = appDocDirectory.path +
+//          customPath +
+//          "thefile";
       recorder = FlutterAudioRecorder(customPath, audioFormat: AudioFormat.WAV);
       await recorder.initialized;
       print("DBG-> INIT RECORD");
@@ -229,7 +267,24 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        title: Center(child: Text(widget.title),),
+        title: Center(child: Center(child: Text(widget.title),),),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          children: <Widget>[
+            UserAccountsDrawerHeader(
+              accountName: new Text("${user?.displayName}"),
+              accountEmail: new Text("${user?.email}"),
+              currentAccountPicture: new CircleAvatar(backgroundImage: NetworkImage("${user?.photoUrl}"),),
+            ),
+            ListTile(
+              title: Text("Logout"),
+              onTap: (){
+                authService.logout();
+              },
+            )
+          ],
+        ),
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
@@ -271,11 +326,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
             IconButton(icon: Icon(Icons.album), onPressed: _theButton, iconSize: 256,),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
