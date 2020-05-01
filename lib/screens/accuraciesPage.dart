@@ -70,24 +70,25 @@ class _accuraciesPageState extends State<accuraciesPage> {
                                       child: ListView.builder(
                                           itemCount: genreList.accuracies.length,
                                           itemBuilder: (BuildContext context, index) {
-                                            return Padding(padding: EdgeInsets.symmetric(vertical: 8),
-                                              child: InkWell(
-                                                onTap: () async {
-                                                  showLoader();
-                                                  FirebaseUser user = await authService.currentUser();
-                                                  //Post feature string to firestore
-                                                  Firestore.instance.collection('users').document(user.uid)
-                                                      .setData({DateTime.now().millisecondsSinceEpoch.toString()+"_${genreList.accuracies[index].label}_${genreList.accuracies[index].accuracy}": "$featureString}"},merge: true).then((onValue){
-                                                    print("DONE!");
-                                                    Navigator.pop(context);
-                                                    Navigator.pop(context);
-                                                    showDialog(context: context, builder: (BuildContext context){
-                                                      return AlertDialog(
+
+                                            return OutlineButton(
+                                              child: Text("${genreList.accuracies[index].label}"),
+                                              onPressed: () async {
+                                                showLoader();
+                                                FirebaseUser user = await authService.currentUser();
+                                                //Post feature string to firestore
+                                                Firestore.instance.collection('users').document(user.uid)
+                                                    .setData({DateTime.now().millisecondsSinceEpoch.toString()+"_${genreList.accuracies[index].label}_${genreList.accuracies[index].accuracy}": "$featureString}"},merge: true).then((onValue){
+                                                  print("DONE!");
+                                                  Navigator.pop(context);
+                                                  Navigator.pop(context);
+                                                  showDialog(context: context, builder: (BuildContext context){
+                                                    return AlertDialog(
                                                         content: Container(
                                                           height: 200,
                                                           width: 200,
                                                           child: Column(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                                             children: <Widget>[
                                                               Padding(
                                                                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -102,20 +103,11 @@ class _accuraciesPageState extends State<accuraciesPage> {
                                                             ],
                                                           ),
                                                         )
-                                                      );
-                                                    });
+                                                    );
                                                   });
-
-                                                },
-                                                child: IgnorePointer(
-                                                  child: Card(
-                                                    child: Padding(
-                                                      padding: EdgeInsets.symmetric(vertical: 8),
-                                                      child: Text("${genreList.accuracies[index].label}"),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),);
+                                                });
+                                              },
+                                            );
                                           }),
                                     ),
                                     IconButton(

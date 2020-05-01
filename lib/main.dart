@@ -14,6 +14,7 @@ import 'package:audientflutter/screens/accuraciesPage.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_audio_recorder/flutter_audio_recorder.dart';
+import 'package:like_button/like_button.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/adapter.dart';
@@ -254,6 +255,43 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       _counter++;
     });
   }
+  Future<bool> onLikeButtonTapped(bool isLiked) async{
+    /// send your request here
+    // final bool success= await sendRequest();
+
+    if(isRecording){
+      isRecording = false;
+      String customPath = '/audient_';
+      io.Directory appDocDirectory;
+      if (io.Platform.isIOS) {
+        appDocDirectory = await getApplicationDocumentsDirectory();
+      } else {
+        appDocDirectory = await getTemporaryDirectory();
+      }
+
+      // can add extension like ".mp4" ".wav" ".m4a" ".aac"
+      customPath = appDocDirectory.path +
+          customPath +
+          DateTime.now().millisecondsSinceEpoch.toString();
+      globalObjects.path = customPath;
+      recorder = FlutterAudioRecorder(customPath, audioFormat: AudioFormat.WAV);
+      await recorder.initialized;
+      await recorder.start();
+      recording = await recorder?.current(channel: 0);
+      return !isLiked;
+    }
+    else{
+      isRecording = true;
+      var result = await recorder.stop();
+      _recording = result;
+      _t.cancel();
+      await _sendAudio();
+      return !isLiked;
+//      _play();
+    }
+    /// if failed, you can do nothing
+    // return success? !isLiked:isLiked;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -306,24 +344,23 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            CircularProgressIndicator(value: _power,),
-            Visibility(
-              visible: !isRecording,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  IconButton(
-                    disabledColor: Colors.red,
-                    icon: Icon(Icons.fiber_manual_record),
-                  ),
-                  Text("Recording")
-                ],
-              ),
-              maintainAnimation: true,
-              maintainSize: false,
-              maintainState: true,
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text("Tap to record!",style: TextStyle(fontWeight: FontWeight.bold),),
             ),
-            IconButton(icon: Icon(Icons.album), onPressed: _theButton, iconSize: 256,),
+            CircularProgressIndicator(value: _power,),
+            LikeButton(
+              //animationDuration: const Duration(microseconds: 5000),
+              onTap: onLikeButtonTapped,
+                size: 256,
+                likeBuilder: (bool isLiked) {
+              return Icon(
+                Icons.mic,
+                color: isLiked ? Colors.orangeAccent : Colors.grey,
+                size: 256,
+              );
+            }),
+            //IconButton(icon: Icon(Icons.album), onPressed: _theButton, iconSize: 256, highlightColor: Colors.orangeAccent, color: Colors.black,),
           ],
         ),
       ), // This trailing comma makes auto-formatting nicer for build methods.
