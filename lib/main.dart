@@ -73,6 +73,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   int _counter = 0;
   FirebaseUser user;
+  Duration lengthofRec;
+  AudioPlayer player = AudioPlayer();
+
+  double avgPower;
+  Duration duration = Duration(seconds: 0);
+
+
   final List<Tab> myTabs = <Tab>[
     Tab(text: 'Home'),
     Tab(text: 'Accuracies'),
@@ -84,7 +91,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   Recording _recording;
   double _power=0;
   Timer _t;
-  GenreList genreList;
+  List<List<Genre>> genreList;
   @override
   void initState() {
     // TODO: implement initState
@@ -95,10 +102,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   Future<void> initCust() async {
     _animationController = AnimationController(vsync: this,duration: Duration(seconds: 1));
-    genreList = GenreList();
     bool hasPermission = await FlutterAudioRecorder.hasPermissions;
     user = await authService.currentUser();
     print("DBGauto OHME");
+    player.onDurationChanged.listen((Duration d) {
+      print('Max duration: $d');
+      print("Duration of the recording: $d seconds?");
+      lengthofRec = d;
+    });
 
     //Setup auth change listener
     FirebaseAuth.instance.onAuthStateChanged.listen((user) {
@@ -117,47 +128,35 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     });
   }
 
-  Future <GenreList> getGenreList(String _path) async {
-
-    genreList = GenreList();
-    genreList.accuracies = List<Genre>();
-    print("DBG-> Create genrelist list of length ${genreList.accuracies.length}");
+  Future <void> getGenreList() async {
     var dio = Dio();
     dio.options.baseUrl = "https://audient.azurewebsites.net";
     FormData formData = FormData.fromMap({
       "name": "file",
-      "file": await MultipartFile.fromFile(_path,filename: "jam.wav")
+      "dur" : _recording.duration.inSeconds,
+      "file": await MultipartFile.fromFile(_recording.path,filename: "jam.wav")
     });
-    var response = await dio.post("/receiveWav", data: formData);
-    if(response.statusCode != 400 ){
-      var tmp = response.data;
-      print("THIS IS IT-> ${tmp["Blues"]}");
-//      For azure or other service with tensorflow
-      double high=0;
-      tmp.forEach((k,v){
+    //record and stuff here
+    var response = await dio.post("/receiveWavExp", data: formData);
+    var tmp = response.data;
+    print("THIS IS IT-> ${tmp}");
+    int curind=0;
+    tmp.forEach((i){
+      var tmpList = List<Genre>();
+      print("Current index==0$curind");
+      curind+=1;
+      i.forEach((k,v){
         print("KEV VAL PAIRS $k $v");
-        genreList.accuracies.add(Genre(k,v));
-        if(double.parse(v)>high){
-          high = double.parse(v);
-          genreList.predictedLabel = k.toString().toUpperCase();
-          genreList.confidence = double.parse(v);
-        }
+        tmpList.add(Genre(k,v));
       });
+      globalObjects.glList.add(tmpList);
+    });
+    Navigator.pop(context);
+    duration = Duration(seconds: 0);
+    Navigator.push(context, MaterialPageRoute(builder: (BuildContext context) => new accuraciesPage()));
+    setState(() {
 
-      //For heroku
-
-//      var res2 = tmp.substring(2,tmp.length-2).split(",");
-//      List<double> myList = List<double>();
-//      res2.forEach((f){
-//        myList.add(double.parse(f));
-//      });
-
-    }
-    else{
-      print("DBG-> HTTP ERROR ${response.statusCode}");
-
-    }
-    return genreList;
+    });
   }
 
   void showLoader(){
@@ -171,16 +170,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   void _sendAudio() async {
     showLoader();
+    await player.play(globalObjects.path+".wav", isLocal: true);
+    await player.stop();
+
     //HTTP POST HERE
-    genreList = await getGenreList(_recording.path).whenComplete((){
-      print("DBG-> Got genre list of length ${genreList.accuracies} ${_recording.path}");
-      genreList.accuracies.sort((a,b) => double.parse(b.accuracy).compareTo(double.parse(a.accuracy)));
-      Navigator.pop(context);
-      Navigator.push(context, MaterialPageRoute(builder: (BuildContext context) => new accuraciesPage(),settings:
-      RouteSettings(
-          arguments: genreList
-      )));
-    });
+    print("Proceeding to get the genreList for a audio file of ${lengthofRec.inSeconds} seconds or ${_recording.duration}");
+    //int d = await player.getDuration();
+    await getGenreList();
     // Inflate genreList
 
     //Update the view here
@@ -190,14 +186,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
     return;
   }
-  void _play() {
-    AudioPlayer player = AudioPlayer();
-    player.play(_recording.path, isLocal: true);
-  }
-
-  Future<void> _theButton() async {
-    //record and stuff here
-
+  void _theButton() async {
+    print("Record button clicked.");
     if(isRecording){
       isRecording = false;
       String customPath = '/audient_';
@@ -213,36 +203,34 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
           customPath +
           DateTime.now().millisecondsSinceEpoch.toString();
       globalObjects.path = customPath;
-//      customPath = appDocDirectory.path +
-//          customPath +
-//          "thefile";
       recorder = FlutterAudioRecorder(customPath, audioFormat: AudioFormat.WAV);
       await recorder.initialized;
-      print("DBG-> INIT RECORD");
       await recorder.start();
-      print("DBG-> STARTED");
       recording = await recorder?.current(channel: 0);
-      _t = new Timer.periodic(Duration(milliseconds: 10), (Timer t) async {
-        var current = await recorder.current(channel: 0);
-        // Update meter
+      _t = Timer.periodic(Duration(seconds: 1), (_t) async {
+        print("DUR $duration");
         setState(() {
-          _recording = current;
-          _power = _recording?.metering?.peakPower;
-          print(_power);
+          duration = Duration(seconds: duration.inSeconds+1);
         });
       });
+      print("Recording.");
+      setState(() {
+
+      });
+//      _p
     }
     else{
+      _t.cancel();
       isRecording = true;
       var result = await recorder.stop();
       _recording = result;
-      _t.cancel();
-      await _sendAudio();
+      print("Stopped.");
+      _sendAudio();
+      setState(() {
+
+      });
 //      _play();
     }
-    setState(() {
-
-    });
   }
 
   void _incrementCounter() {
@@ -254,43 +242,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       // called again, and so nothing would appear to happen.
       _counter++;
     });
-  }
-  Future<bool> onLikeButtonTapped(bool isLiked) async{
-    /// send your request here
-    // final bool success= await sendRequest();
-
-    if(isRecording){
-      isRecording = false;
-      String customPath = '/audient_';
-      io.Directory appDocDirectory;
-      if (io.Platform.isIOS) {
-        appDocDirectory = await getApplicationDocumentsDirectory();
-      } else {
-        appDocDirectory = await getTemporaryDirectory();
-      }
-
-      // can add extension like ".mp4" ".wav" ".m4a" ".aac"
-      customPath = appDocDirectory.path +
-          customPath +
-          DateTime.now().millisecondsSinceEpoch.toString();
-      globalObjects.path = customPath;
-      recorder = FlutterAudioRecorder(customPath, audioFormat: AudioFormat.WAV);
-      await recorder.initialized;
-      await recorder.start();
-      recording = await recorder?.current(channel: 0);
-      return !isLiked;
-    }
-    else{
-      isRecording = true;
-      var result = await recorder.stop();
-      _recording = result;
-      _t.cancel();
-      await _sendAudio();
-      return !isLiked;
-//      _play();
-    }
-    /// if failed, you can do nothing
-    // return success? !isLiked:isLiked;
   }
 
   @override
@@ -344,22 +295,29 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            Card(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text("$duration"),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text("Not recording? $isRecording",style: TextStyle(fontWeight: FontWeight.bold),),
+            ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text("Tap to record!",style: TextStyle(fontWeight: FontWeight.bold),),
             ),
             CircularProgressIndicator(value: _power,),
-            LikeButton(
-              //animationDuration: const Duration(microseconds: 5000),
-              onTap: onLikeButtonTapped,
-                size: 256,
-                likeBuilder: (bool isLiked) {
-              return Icon(
-                Icons.mic,
-                color: isLiked ? Colors.orangeAccent : Colors.grey,
-                size: 256,
-              );
-            }),
+            IconButton(
+              icon: Icon(Icons.mic),
+              color: Colors.orangeAccent,
+            ),
+            RaisedButton(child: Text("Record a song to analyse"),
+            onPressed: () async{
+              await _theButton();
+              },)
             //IconButton(icon: Icon(Icons.album), onPressed: _theButton, iconSize: 256, highlightColor: Colors.orangeAccent, color: Colors.black,),
           ],
         ),
