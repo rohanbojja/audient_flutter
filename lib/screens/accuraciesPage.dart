@@ -46,7 +46,8 @@ class _accuraciesPageState extends State<accuraciesPage> {
       if(position?.inSeconds!=p.inSeconds) {
         print("Blues: ${globalObjects.glList[p?.inSeconds][0].accuracy} ${position?.inSeconds}");
         position = p;
-        displayList = globalObjects.glList[position?.inSeconds ?? 0];
+        globalObjects.glList[position?.inSeconds].sort((a,b) => b.accuracy.compareTo(a.accuracy));
+        displayList = globalObjects.glList[position?.inSeconds];
         setState(() {
 
         });

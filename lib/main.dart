@@ -140,6 +140,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     var response = await dio.post("/receiveWavExp", data: formData);
     var tmp = response.data;
     print("THIS IS IT-> ${tmp}");
+    globalObjects.glList = List<List<Genre>>();
     int curind=0;
     tmp.forEach((i){
       var tmpList = List<Genre>();
