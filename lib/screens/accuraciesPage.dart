@@ -1,5 +1,5 @@
+import 'package:audientflutter/components/pieChart.dart';
 import 'package:audientflutter/models/Genre.dart';
-import 'package:audientflutter/models/GenreList.dart';
 import 'package:audientflutter/services/auth.dart';
 import 'package:audientflutter/services/global.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -11,6 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'dart:io' as io;
+import 'package:charts_flutter/flutter.dart' as charts;
+import 'package:flutter/material.dart';
+
 
 import 'package:path_provider/path_provider.dart';
 class accuraciesPage extends StatefulWidget {
@@ -19,14 +22,23 @@ class accuraciesPage extends StatefulWidget {
 }
 AudioPlayer audioPlayer = AudioPlayer();
 List<Genre> displayList =List<Genre>();
-Genre predictedGenre = Genre("init","0");
-void modifDL(int index){
-
-
-}
+Genre predictedGenre = Genre("init",0);
 
 class _accuraciesPageState extends State<accuraciesPage> {
+  List<charts.Series<Genre,String>> _seriesGenreData;
 
+  _generateData(List<Genre> displayList){
+    var genreData = displayList;
+    _seriesGenreData.add(
+      charts.Series(
+        data: genreData,
+        domainFn: (Genre genre,_) => genre.label,
+        measureFn: (Genre genre,_) => genre.accuracy,
+        colorFn: (Genre genre, _) => charts.ColorUtil.fromDartColor(genre.segmentColor),
+        labelAccessorFn: (Genre genre,_) => "${genre.label}"
+      )
+    );
+  }
   @override
   void initState() {
     // TODO: implement initState
@@ -36,8 +48,11 @@ class _accuraciesPageState extends State<accuraciesPage> {
 
   void custInit(){
     displayList = globalObjects.glList[0];
+    _seriesGenreData = List<charts.Series<Genre,String>>();
+    _generateData(displayList);
+
     globalObjects.glList[globalObjects.glList.length-1].forEach((Genre genre){
-      if(double.parse(genre.accuracy)>double.parse(predictedGenre.accuracy)){
+      if(genre.accuracy>predictedGenre.accuracy){
         predictedGenre = genre;
       }
     });
@@ -48,6 +63,8 @@ class _accuraciesPageState extends State<accuraciesPage> {
         position = p;
         globalObjects.glList[position?.inSeconds].sort((a,b) => b.accuracy.compareTo(a.accuracy));
         displayList = globalObjects.glList[position?.inSeconds];
+        _seriesGenreData = List<charts.Series<Genre,String>>();
+        _generateData(displayList);
         setState(() {
 
         });
@@ -83,7 +100,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Analysis: ${position}"),
+        title: Text("Analysis: ${position ?? 0}"),
       ),
         body: Column(
           children: <Widget>[
@@ -93,6 +110,13 @@ class _accuraciesPageState extends State<accuraciesPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
+                    Container(width: 400, height: 400, child: charts.PieChart(
+                        _seriesGenreData,animate: true,
+                        behaviors: [
+                      charts.DatumLegend(desiredMaxRows: 4, outsideJustification: charts.OutsideJustification.endDrawArea, cellPadding: EdgeInsets.all(16), horizontalFirst: true),
+                    ]
+                    ),
+                    ),
                     ButtonBar(
                       children: <Widget>[
                         OutlineButton(
@@ -200,7 +224,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
                             children: <Widget>[
                               ListTile(title: Text("${displayList[index].label} ${displayList[index].accuracy}",style: TextStyle(fontSize: 8),)
                               ),
-                              LinearProgressIndicator(value: double.parse(displayList[index].accuracy), backgroundColor: Colors.orangeAccent,),
+                              LinearProgressIndicator(value: displayList[index].accuracy, backgroundColor: Colors.orangeAccent,),
                             ],
                           ));
                     }),

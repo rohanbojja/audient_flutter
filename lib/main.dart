@@ -9,7 +9,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:http/http.dart' as http;
 import 'package:audientflutter/models/Genre.dart';
-import 'package:audientflutter/models/GenreList.dart';
 import 'package:audientflutter/screens/accuraciesPage.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +18,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/adapter.dart';
 import 'package:mlkit/mlkit.dart';
+import 'package:random_color/random_color.dart';
+
+import 'components/progressButton.dart';
 
 void main() => runApp(MyApp());
 
@@ -71,8 +73,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
+  String params_progress_button = "record";
   int _counter = 0;
   FirebaseUser user;
+  RandomColor _randomColor = RandomColor();
   Duration lengthofRec;
   AudioPlayer player = AudioPlayer();
 
@@ -142,19 +146,30 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     print("THIS IS IT-> ${tmp}");
     globalObjects.glList = List<List<Genre>>();
     int curind=0;
+
+    bool generateColors = true;
+    var colorMap = Map();
     tmp.forEach((i){
       var tmpList = List<Genre>();
       print("Current index==0$curind");
       curind+=1;
       i.forEach((k,v){
         print("KEV VAL PAIRS $k $v");
-        tmpList.add(Genre(k,v));
+        if(generateColors){
+          var randColor = _randomColor.randomColor( colorHue: ColorHue.multiple(colorHues: [ColorHue.purple,ColorHue.red]));
+          tmpList.add(Genre(k,double.parse(v), segmentColor: randColor));
+          colorMap[k] = randColor;
+        }else{
+          var randColor = colorMap[k];
+          tmpList.add(Genre(k,double.parse(v), segmentColor: randColor));
+        }
       });
+      generateColors = false;
       globalObjects.glList.add(tmpList);
     });
-    Navigator.pop(context);
     duration = Duration(seconds: 0);
     Navigator.push(context, MaterialPageRoute(builder: (BuildContext context) => new accuraciesPage()));
+    params_progress_button = "record";
     setState(() {
 
     });
@@ -170,12 +185,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   }
 
   void _sendAudio() async {
-    showLoader();
     await player.play(globalObjects.path+".wav", isLocal: true);
     await player.stop();
 
     //HTTP POST HERE
-    print("Proceeding to get the genreList for a audio file of ${lengthofRec.inSeconds} seconds or ${_recording.duration}");
+    print("Proceeding to get the genreList for a audio file of seconds ${_recording.duration} seconds");
     //int d = await player.getDuration();
     await getGenreList();
     // Inflate genreList
@@ -208,10 +222,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       await recorder.initialized;
       await recorder.start();
       recording = await recorder?.current(channel: 0);
-      _t = Timer.periodic(Duration(seconds: 1), (_t) async {
-        print("DUR $duration");
+      _t = Timer.periodic(Duration(milliseconds: 100), (_t) async {
+        Recording tmp = await recorder?.current(channel: 0);
         setState(() {
-          duration = Duration(seconds: duration.inSeconds+1);
+          _power = (50.0 + tmp.metering.averagePower).abs()*2/100;
+          print(_power);
+          duration = Duration(milliseconds: duration.inMilliseconds+100);
         });
       });
       print("Recording.");
@@ -254,10 +270,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
+        centerTitle: true,
+        title: Text("Audient", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w100),),
         // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Center(child: Center(child: Text(widget.title),),),
+        // the App.build method, and use it to set our appbar titl
       ),
       drawer: Drawer(
         child: ListView(
@@ -298,25 +316,29 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
           children: <Widget>[
             Card(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text("$duration"),
+                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                child: Text("$duration", style: TextStyle(fontSize: 28),),
               ),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text("Not recording? $isRecording",style: TextStyle(fontWeight: FontWeight.bold),),
+              child: Text("Tap to record!",),
             ),
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text("Tap to record!",style: TextStyle(fontWeight: FontWeight.bold),),
+              padding: EdgeInsets.symmetric(vertical: 64),
+              child: LinearProgressIndicator(value: _power, backgroundColor: Colors.orangeAccent,),
             ),
-            CircularProgressIndicator(value: _power,),
-            IconButton(
-              icon: Icon(Icons.mic),
-              color: Colors.orangeAccent,
-            ),
-            RaisedButton(child: Text("Record a song to analyse"),
+            ProgressButton(buttonText: "$params_progress_button",
             onPressed: () async{
+              if(params_progress_button=="record"){
+                params_progress_button = "stop";
+                print("change button state?");
+                setState(() {
+
+                });
+              }else{
+                params_progress_button = "process";
+              }
               await _theButton();
               },)
             //IconButton(icon: Icon(Icons.album), onPressed: _theButton, iconSize: 256, highlightColor: Colors.orangeAccent, color: Colors.black,),
