@@ -17,7 +17,6 @@ import 'package:like_button/like_button.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/adapter.dart';
-import 'package:mlkit/mlkit.dart';
 import 'package:random_color/random_color.dart';
 
 import 'components/progressButton.dart';
@@ -34,12 +33,12 @@ var myTheme = ThemeData(
   // or simply save your changes to "hot reload" in a Flutter IDE).
   // Notice that the counter didn't reset back to zero; the application
   // is not restarted.
-  brightness: Brightness.dark,
+  brightness: Brightness.light,
   fontFamily: 'Montserrat',
-  accentColor: Colors.purple,
+  accentColor: Colors.orange,
   primaryColor: Colors.black,
-  primarySwatch: Colors.purple,
-  cursorColor: Colors.deepPurple,
+  primarySwatch: Colors.green,
+  cursorColor: Colors.orange,
 );
 
 class MyApp extends StatelessWidget {
@@ -141,7 +140,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       "file": await MultipartFile.fromFile(_recording.path,filename: "jam.wav")
     });
     //record and stuff here
-    var response = await dio.post("/receiveWavExp", data: formData);
+    var response = await dio.post("/getPredictions", data: formData);
     var tmp = response.data;
     print("THIS IS IT-> ${tmp}");
     globalObjects.glList = List<List<Genre>>();
@@ -270,7 +269,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
         centerTitle: true,
         title: Text("Audient", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w100),),
@@ -326,7 +324,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 64),
-              child: LinearProgressIndicator(value: _power, backgroundColor: Colors.orangeAccent,),
+              child: LinearProgressIndicator(value: _power, backgroundColor: Colors.grey,),
             ),
             ProgressButton(buttonText: "$params_progress_button",
             onPressed: () async{

@@ -110,10 +110,10 @@ class _accuraciesPageState extends State<accuraciesPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Container(width: 400, height: 400, child: charts.PieChart(
+                    Container(width: 400, height: 250, child: charts.PieChart(
                         _seriesGenreData,animate: true,
                         behaviors: [
-                      charts.DatumLegend(desiredMaxRows: 4, outsideJustification: charts.OutsideJustification.endDrawArea, cellPadding: EdgeInsets.all(16), horizontalFirst: true),
+                      charts.DatumLegend(desiredMaxRows: 3, outsideJustification: charts.OutsideJustification.endDrawArea, cellPadding: EdgeInsets.all(16), horizontalFirst: true),
                     ]
                     ),
                     ),
@@ -224,7 +224,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
                             children: <Widget>[
                               ListTile(title: Text("${displayList[index].label} ${displayList[index].accuracy}",style: TextStyle(fontSize: 8),)
                               ),
-                              LinearProgressIndicator(value: displayList[index].accuracy, backgroundColor: Colors.orangeAccent,),
+                              LinearProgressIndicator(value: displayList[index].accuracy, backgroundColor: Colors.grey,),
                             ],
                           ));
                     }),

@@ -1,9 +1,11 @@
 import 'package:audientflutter/main.dart';
+import 'package:audientflutter/screens/web/fileUploadPage.dart';
 import 'package:audientflutter/services/auth.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_signin_button/button_list.dart';
 import 'package:flutter_signin_button/button_view.dart';
+import 'package:flutter/foundation.dart';
 
 class loginPage extends StatefulWidget {
   @override
@@ -47,7 +49,12 @@ class _loginPageState extends State<loginPage> {
             SignInButton(
               Buttons.Google,
               onPressed: () {
-                authService.handleSignIn();
+                if(!kIsWeb){
+                  authService.handleSignIn();
+                }else{
+//                  Navigator.push(context, MaterialPageRoute(
+//                      builder: (BuildContext context) => new FileUploadPage()));
+                }
               },
             ),
           ],

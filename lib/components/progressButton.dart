@@ -84,7 +84,7 @@ class _ProgressButtonState extends State<ProgressButton> with TickerProviderStat
   }
   void animateButton(){
     double init_width  = globalKey.currentContext.size.width;
-    var controller = AnimationController(duration: Duration(milliseconds: 300), vsync: this);
+    var controller = AnimationController(duration: Duration(milliseconds: 200), vsync: this);
     _animation  = Tween(begin: 0.0, end: 1.0)
     .animate(controller)
     ..addListener((){
