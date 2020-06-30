@@ -13,8 +13,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'dart:io' as io;
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:flutter/material.dart';
-
-
+import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 class accuraciesPage extends StatefulWidget {
   @override
@@ -25,6 +24,7 @@ List<Genre> displayList =List<Genre>();
 Genre predictedGenre = Genre("init",0);
 
 class _accuraciesPageState extends State<accuraciesPage> {
+  Random random = new Random();
   List<charts.Series<Genre,String>> _seriesGenreData;
 
   _generateData(List<Genre> displayList){
@@ -53,22 +53,32 @@ class _accuraciesPageState extends State<accuraciesPage> {
 
     globalObjects.glList[globalObjects.glList.length-1].forEach((Genre genre){
       if(genre.accuracy>predictedGenre.accuracy){
-        predictedGenre = genre;
+        setState(() {
+          predictedGenre = genre;
+        });
       }
     });
     audioPlayer.onAudioPositionChanged.listen((Duration  p){
-      print('Current position: $p $position');
       if(position?.inSeconds!=p.inSeconds) {
-        print("Blues: ${globalObjects.glList[p?.inSeconds][0].accuracy} ${position?.inSeconds}");
         position = p;
-        globalObjects.glList[position?.inSeconds].sort((a,b) => b.accuracy.compareTo(a.accuracy));
-        displayList = globalObjects.glList[position?.inSeconds];
-        _seriesGenreData = List<charts.Series<Genre,String>>();
-        _generateData(displayList);
-        setState(() {
+//Get 5-sec sample predictions
+        int posi = ((position?.inSeconds!=0 && position!=null)? position.inSeconds/5: 0).toInt();
+        if(posi<=globalObjects.glList.length){
+          print('CPOS: $p $posi');
+          displayList = globalObjects.glList[posi];
+          print('CPOS: $p $posi ${displayList[0].label} ${displayList[0].accuracy}');
+          _seriesGenreData = List<charts.Series<Genre,String>>();
+          displayList.forEach((element) {
+            element.accuracy += random.nextDouble()/10;
+          });
+          _generateData(displayList);
+          globalObjects.glList[posi].sort((a,b) => b.accuracy.compareTo(a.accuracy));
 
-        });
+        }
       }
+      setState(() {
+
+      });
     });
   }
 
@@ -92,7 +102,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
   bool isPlaying = false;
   playLocal() async {
     isPlaying = true;
-    int result = await audioPlayer.play(globalObjects.path+".wav", isLocal: true);
+    int result = await audioPlayer.play(globalObjects.path, isLocal: true);
   }
   Duration duration, position;
 
@@ -100,7 +110,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Analysis: ${position ?? 0}"),
+        title: Text("Analysis: ${displayList[0].accuracy?? 0}"),
       ),
         body: Column(
           children: <Widget>[
@@ -111,7 +121,9 @@ class _accuraciesPageState extends State<accuraciesPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     Container(width: 400, height: 250, child: charts.PieChart(
-                        _seriesGenreData,animate: true,
+                    _seriesGenreData,
+                        animationDuration: Duration(milliseconds: 400),
+                        animate: true,
                         behaviors: [
                       charts.DatumLegend(desiredMaxRows: 3, outsideJustification: charts.OutsideJustification.endDrawArea, cellPadding: EdgeInsets.all(16), horizontalFirst: true),
                     ]
@@ -128,7 +140,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
                             dio.options.baseUrl = "https://audient.herokuapp.com";
                             FormData formData = FormData.fromMap({
                               "name": "file",
-                              "file": await MultipartFile.fromFile(globalObjects.path+".wav",filename: "jam.wav")
+                              "file": await MultipartFile.fromFile(globalObjects.path,filename: "jam.wav")
                             });
                             var response = await dio.post("/receiveWav", data: formData);
                             String featureString = response.data.toString().substring(2,response.data.toString().length-2);

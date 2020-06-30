@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_signin_button/button_list.dart';
 import 'package:flutter_signin_button/button_view.dart';
 import 'package:flutter/foundation.dart';
+import 'package:universal_platform/universal_platform.dart';
+
+bool isIos = UniversalPlatform.isIOS;
+bool isAndroid = UniversalPlatform.isAndroid;
+bool isWeb = UniversalPlatform.isWeb;
 
 class loginPage extends StatefulWidget {
   @override
@@ -34,7 +39,7 @@ class _loginPageState extends State<loginPage> {
         Navigator.push(context, MaterialPageRoute(
             builder: (BuildContext context) => new MyHomePage(title: "Audient",)));
       } else {
-        print("DBG US RIS NULL");
+
       }
     });
   }
@@ -49,11 +54,12 @@ class _loginPageState extends State<loginPage> {
             SignInButton(
               Buttons.Google,
               onPressed: () {
-                if(!kIsWeb){
+                if(!kIsWeb && !UniversalPlatform.isWindows){
                   authService.handleSignIn();
                 }else{
-//                  Navigator.push(context, MaterialPageRoute(
-//                      builder: (BuildContext context) => new FileUploadPage()));
+
+                  Navigator.push(context, MaterialPageRoute(
+                      builder: (BuildContext context) => new MyHomePage()));
                 }
               },
             ),

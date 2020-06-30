@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:audientflutter/screens/loginPage.dart';
 import 'package:audientflutter/services/auth.dart';
 import 'package:audientflutter/services/global.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:http/http.dart' as http;
@@ -131,13 +133,16 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     });
   }
 
-  Future <void> getGenreList() async {
+  Future <void> getGenreList(String filePath, int durInSeconds) async {
     var dio = Dio();
+    print("$filePath /// ${globalObjects.path}");
+    globalObjects.path = filePath;
     dio.options.baseUrl = "https://audient.azurewebsites.net";
     FormData formData = FormData.fromMap({
       "name": "file",
-      "dur" : _recording.duration.inSeconds,
-      "file": await MultipartFile.fromFile(_recording.path,filename: "jam.wav")
+      "label_code": 0,
+      "dur" : durInSeconds,
+      "file": await MultipartFile.fromFile(filePath ,filename: "jam.wav")
     });
     //record and stuff here
     var response = await dio.post("/getPredictions", data: formData);
@@ -188,9 +193,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     await player.stop();
 
     //HTTP POST HERE
-    print("Proceeding to get the genreList for a audio file of seconds ${_recording.duration} seconds");
-    //int d = await player.getDuration();
-    await getGenreList();
+
+    await getGenreList(_recording.path, _recording.duration.inSeconds);
     // Inflate genreList
 
     //Update the view here
@@ -291,6 +295,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
             )
           ],
         ),
+      ),
+      floatingActionButton: OutlineButton(
+        child: Text("File upload"),
+        onPressed: () async {
+          File file = await FilePicker.getFile();
+          getGenreList(file.path, 20);
+        },
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
