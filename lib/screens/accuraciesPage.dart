@@ -248,8 +248,16 @@ class _accuraciesPageState extends State<accuraciesPage> {
                                       showLoader();
                                       FirebaseUser user = await authService.currentUser();
                                       //Post feature string to firestore
+
+                                      //Convert Genre object to accuracy string
+                                      var tempString= "";
+
+                                      aggList.forEach((element) {
+                                        tempString+=element.accuracy.toString()+",";
+                                      });
+
                                       Firestore.instance.collection('users').document(user.uid)
-                                          .setData({DateTime.now().millisecondsSinceEpoch.toString()+"_${displayList[index].label}_${displayList[index].accuracy}": "${aggList.toString()}"},merge: true).then((onValue){
+                                          .setData({DateTime.now().millisecondsSinceEpoch.toString()+"_${displayList[index].label}_${displayList[index].accuracy}": "${tempString}"},merge: true).then((onValue){
                                         print("DONE!");
                                         Navigator.pop(context);
                                         Navigator.pop(context);
