@@ -11,14 +11,14 @@ class ProgressButton extends StatefulWidget {
 class _ProgressButtonState extends State<ProgressButton> with TickerProviderStateMixin{
 
   GlobalKey globalKey = GlobalKey();
-  double button_width = 200;
+  double button_width = 150;
   Animation _animation;
   bool _isPressed;
 
   @override
   Widget build(BuildContext context) {
     if(widget.buttonText=="record"){
-      button_width = 200;
+      button_width = 100;
       return PhysicalModel(
         color: Theme.of(context).accentColor,
         elevation: 5.0,

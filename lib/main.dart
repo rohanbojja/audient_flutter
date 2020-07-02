@@ -74,6 +74,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
+
+  bool recOrFile = false;
+
   String params_progress_button = "record";
   int _counter = 0;
   FirebaseUser user;
@@ -172,6 +175,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       globalObjects.glList.add(tmpList);
     });
     duration = Duration(seconds: 0);
+    if(recOrFile){
+      Navigator.pop(context);
+      recOrFile=false;
+    }
     Navigator.push(context, MaterialPageRoute(builder: (BuildContext context) => new accuraciesPage()));
     params_progress_button = "record";
     setState(() {
@@ -253,31 +260,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     }
   }
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
         centerTitle: true,
         title: Text("Audient", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w100),),
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar titl
       ),
       drawer: Drawer(
         child: ListView(
@@ -292,35 +281,46 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
               onTap: (){
                 authService.logout();
               },
+            ),
+            ListTile(
+              title: Text("About"),
+              onTap: (){
+                showAboutDialog(
+                  context: context,
+                  applicationIcon: Image(height: 64, width: 64,image: AssetImage("assets/images/ic_launcher.png"),),
+                  applicationName: 'Audient',
+                  applicationVersion: '0.0.1',
+                  applicationLegalese: '©2020 rohanbojja.com',
+                  children: <Widget>[
+                    Padding(
+                        padding: EdgeInsets.only(top: 15),
+                        child: Text('This is an application to demonstrate the working of an audio classifier. Source code @ https://github.com/rohanbojja/audient_flutter')
+                    )
+                  ],
+                );
+              },
             )
           ],
         ),
       ),
       floatingActionButton: OutlineButton(
-        child: Text("File upload"),
+        child: Text("File upload",style: TextStyle(color: Colors.white,)),
         onPressed: () async {
           File file = await FilePicker.getFile();
-          getGenreList(file.path, 20);
+          if(file!=null){
+            showLoader();
+            recOrFile = true;
+            getGenreList(file.path, 20);
+            setState(() {
+
+            });
+          }
         },
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Card(
@@ -331,7 +331,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text("Tap to record!",),
+              child: Text("Tap to record!",style: TextStyle(color: Colors.white),),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 64),

@@ -19,14 +19,17 @@ class accuraciesPage extends StatefulWidget {
   @override
   _accuraciesPageState createState() => _accuraciesPageState();
 }
-AudioPlayer audioPlayer = AudioPlayer();
-List<Genre> displayList =List<Genre>();
-Genre predictedGenre = Genre("init",0);
 
 class _accuraciesPageState extends State<accuraciesPage> {
+  AudioPlayer audioPlayer = AudioPlayer();
+  List<Genre> displayList =List<Genre>();
+  List<Genre> aggList =List<Genre>();
+  Genre predictedGenre = Genre("...",0);
+
   Random random = new Random();
   List<charts.Series<Genre,String>> _seriesGenreData;
-
+  List<charts.Series<Genre,String>> _seriesGenreDataAgg;
+  var tot =0.0;
   _generateData(List<Genre> displayList){
     var genreData = displayList;
     _seriesGenreData.add(
@@ -39,46 +42,86 @@ class _accuraciesPageState extends State<accuraciesPage> {
       )
     );
   }
+
+  _generateDataAgg(List<Genre> displayList){
+    var genreData = displayList;
+    _seriesGenreDataAgg.add(
+        charts.Series(
+            data: genreData,
+            domainFn: (Genre genre,_) => genre.label,
+            measureFn: (Genre genre,_) => genre.accuracy,
+            colorFn: (Genre genre, _) => charts.ColorUtil.fromDartColor(genre.segmentColor),
+            labelAccessorFn: (Genre genre,_) => "${genre.label}"
+        )
+    );
+  }
+  @override
+  void dispose(){
+    audioPlayer.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     custInit();
   }
-
-  void custInit(){
+  Future <void> custInit() async{
+    displayList =List<Genre>();
+    aggList =List<Genre>();
+    predictedGenre = Genre("...",0);
+    aggList =List<Genre>();
     displayList = globalObjects.glList[0];
+    aggList = globalObjects.glList[0];
     _seriesGenreData = List<charts.Series<Genre,String>>();
+    _seriesGenreDataAgg = List<charts.Series<Genre,String>>();
     _generateData(displayList);
-
-    globalObjects.glList[globalObjects.glList.length-1].forEach((Genre genre){
-      if(genre.accuracy>predictedGenre.accuracy){
-        setState(() {
-          predictedGenre = genre;
-        });
-      }
-    });
+    _generateDataAgg(aggList);
     audioPlayer.onAudioPositionChanged.listen((Duration  p){
       if(position?.inSeconds!=p.inSeconds) {
         position = p;
 //Get 5-sec sample predictions
         int posi = ((position?.inSeconds!=0 && position!=null)? position.inSeconds/5: 0).toInt();
         if(posi<=globalObjects.glList.length){
-          print('CPOS: $p $posi');
           displayList = globalObjects.glList[posi];
-          print('CPOS: $p $posi ${displayList[0].label} ${displayList[0].accuracy}');
           _seriesGenreData = List<charts.Series<Genre,String>>();
-          displayList.forEach((element) {
-            element.accuracy += random.nextDouble()/10;
+          _seriesGenreDataAgg = List<charts.Series<Genre,String>>();
+          var ind_agg=0;
+          tot=0;
+          for(var j=0;j<displayList.length;j++){
+            print("gen1: ${displayList[ind_agg].label} gen2: ${aggList[ind_agg].label}");
+            displayList[ind_agg].accuracy += random.nextDouble()/10;
+            aggList[ind_agg].accuracy += displayList[ind_agg].accuracy;
+            tot += aggList[ind_agg].accuracy;
+            ind_agg+=1;
+          }
+          aggList.forEach((element) {
+            //element.accuracy = element.accuracy/tot;
+            predictedGenre??=element;
+            print("${predictedGenre.accuracy} and ${element.accuracy}");
+            if(predictedGenre.accuracy<element.accuracy){
+              predictedGenre=element;
+            }
           });
           _generateData(displayList);
-          globalObjects.glList[posi].sort((a,b) => b.accuracy.compareTo(a.accuracy));
+          _generateDataAgg(aggList);
+          setState(() {
 
+          });
+//          globalObjects.glList[posi].sort((a,b) => b.accuracy.compareTo(a.accuracy));
+
+        }else{
+          _seriesGenreDataAgg = List<charts.Series<Genre,String>>();
+          aggList.forEach((element) {
+            element.accuracy = element.accuracy/tot;
+          });
+          _generateDataAgg(aggList);
+          setState(() {
+
+          });
         }
       }
-      setState(() {
-
-      });
     });
   }
 
@@ -101,6 +144,7 @@ class _accuraciesPageState extends State<accuraciesPage> {
   }
   bool isPlaying = false;
   playLocal() async {
+    await custInit();
     isPlaying = true;
     int result = await audioPlayer.play(globalObjects.path, isLocal: true);
   }
@@ -109,141 +153,151 @@ class _accuraciesPageState extends State<accuraciesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text("Analysis: ${displayList[0].accuracy?? 0}"),
+        title: Text("${predictedGenre.label}-> ${predictedGenre.accuracy/tot*100}"),
       ),
         body: Column(
           children: <Widget>[
             Card(
+              color: Colors.black,
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     Container(width: 400, height: 250, child: charts.PieChart(
-                    _seriesGenreData,
-                        animationDuration: Duration(milliseconds: 400),
-                        animate: true,
-                        behaviors: [
-                      charts.DatumLegend(desiredMaxRows: 3, outsideJustification: charts.OutsideJustification.endDrawArea, cellPadding: EdgeInsets.all(16), horizontalFirst: true),
-                    ]
+                      _seriesGenreData,
+                      animationDuration: Duration(milliseconds: 400),
+                      animate: true,
                     ),
                     ),
-                    ButtonBar(
-                      children: <Widget>[
-                        OutlineButton(
-                          child: Text("Wrong? Help fix it!"),
-                          onPressed: () async {
-                            showLoader();
-                            //Logic here to correct the prediciton and store to Firebase
-                            var dio = Dio();
-                            dio.options.baseUrl = "https://audient.herokuapp.com";
-                            FormData formData = FormData.fromMap({
-                              "name": "file",
-                              "file": await MultipartFile.fromFile(globalObjects.path,filename: "jam.wav")
-                            });
-                            var response = await dio.post("/receiveWav", data: formData);
-                            String featureString = response.data.toString().substring(2,response.data.toString().length-2);
-                            print("${response.statusCode} ${response.data.toString().substring(2,response.data.toString().length-2)}");
-                            Navigator.pop(context);
-                            showDialog(context: context, builder: (BuildContext context){
-                              return AlertDialog(
-                                  content: Container(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      children: <Widget>[
-                                        Text("What do you think the genre is?"),
-                                        Container(
-                                          width: 300,
-                                          height: 400,
-                                          child: ListView.builder(
-                                              itemCount: displayList.length,
-                                              itemBuilder: (BuildContext context, index) {
 
-                                                return OutlineButton(
-                                                  child: Text("${displayList[index].label}"),
-                                                  onPressed: () async {
-                                                    showLoader();
-                                                    FirebaseUser user = await authService.currentUser();
-                                                    //Post feature string to firestore
-                                                    Firestore.instance.collection('users').document(user.uid)
-                                                        .setData({DateTime.now().millisecondsSinceEpoch.toString()+"_${displayList[index].label}_${displayList[index].accuracy}": "$featureString}"},merge: true).then((onValue){
-                                                      print("DONE!");
-                                                      Navigator.pop(context);
-                                                      Navigator.pop(context);
-                                                      showDialog(context: context, builder: (BuildContext context){
-                                                        return AlertDialog(
-                                                            content: Container(
-                                                              height: 200,
-                                                              width: 200,
-                                                              child: Column(
-                                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                                children: <Widget>[
-                                                                  Padding(
-                                                                    padding: EdgeInsets.symmetric(vertical: 8),
-                                                                    child: Text("Thanks for helping out!", style: TextStyle(fontWeight: FontWeight.bold),),
-                                                                  ),
-                                                                  IconButton(
-                                                                    onPressed: (){
-                                                                      Navigator.pop(context);
-                                                                    },
-                                                                    icon: Icon(Icons.arrow_back,size: 32,),
-                                                                  )
-                                                                ],
-                                                              ),
-                                                            )
-                                                        );
-                                                      });
-                                                    });
-                                                  },
-                                                );
-                                              }),
-                                        ),
-                                        IconButton(
-                                          onPressed: (){
-                                            Navigator.pop(context);
-                                          },
-                                          icon: Icon(Icons.arrow_back,size: 32,),
-                                        )],
-                                    ),
-                                  )
-                              );
-                            });
 
-                          },
-                        ),
-                        RaisedButton(child: Text("Play"), onPressed: playLocal,),
-                        RaisedButton(child: Text("Pause"), onPressed: pauseLocal,)
-                      ],
-                    ),
                     Divider(height: 32,),
                     Text(predictedGenre.label
-                      ,style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),),
+                      ,style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,color: Colors.white),),
                   ],
                 ),
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: ListView.builder(
-                    shrinkWrap: true,
-                    scrollDirection: Axis.vertical,
-                    itemCount: displayList.length,
-                    itemBuilder: (context,index){
-                      return InkWell(
-                          child: Column(
-                            children: <Widget>[
-                              ListTile(title: Text("${displayList[index].label} ${displayList[index].accuracy}",style: TextStyle(fontSize: 8),)
-                              ),
-                              LinearProgressIndicator(value: displayList[index].accuracy, backgroundColor: Colors.grey,),
-                            ],
-                          ));
-                    }),
-              )
-            )
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Container(width: 400, height: 300, child: charts.BarChart(
+                  _seriesGenreDataAgg,
+                  animationDuration: Duration(milliseconds: 400),
+                  animate: true,
+                  primaryMeasureAxis:
+                  new charts.NumericAxisSpec(renderSpec: new charts.NoneRenderSpec()),
+                  domainAxis: charts.OrdinalAxisSpec(
+                    renderSpec: charts.SmallTickRendererSpec(labelRotation: 60),
+                  ),
+                  behaviors: [
+                    charts.DatumLegend(desiredMaxRows: 3, outsideJustification: charts.OutsideJustification.endDrawArea, cellPadding: EdgeInsets.all(16), horizontalFirst: false,entryTextStyle: charts.TextStyleSpec(
+                        color: charts.Color(r: 255, g: 255, b: 255),
+                        fontSize: 11),
+                    ),
+                  ]
+              ),
+              ),
+            ),
+//            Expanded(
+//              child: Padding(
+//                padding: EdgeInsets.symmetric(horizontal: 16),
+//                child: ListView.builder(
+//                    shrinkWrap: true,
+//                    scrollDirection: Axis.vertical,
+//                    itemCount: displayList.length,
+//                    itemBuilder: (context,index){
+//                      return InkWell(
+//                          child: Column(
+//                            children: <Widget>[
+//                              ListTile(title: Text("${displayList[index].label} ${displayList[index].accuracy}",style: TextStyle(fontSize: 8),)
+//                              ),
+//                              LinearProgressIndicator(value: displayList[index].accuracy, backgroundColor: Colors.grey,),
+//                            ],
+//                          ));
+//                    }),
+//              )
+//            )
           ],
-        )
+        ),
+      floatingActionButton:
+      ButtonBar(
+        children: <Widget>[
+          OutlineButton(
+            child: Text("Wrong? Help fix it!"),
+            onPressed: () async {
+              showDialog(context: context, builder: (BuildContext context){
+                return AlertDialog(
+                    content: Container(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: <Widget>[
+                          Text("What do you think the genre is?"),
+                          Container(
+                            width: 300,
+                            height: 400,
+                            child: ListView.builder(
+                                itemCount: displayList.length,
+                                itemBuilder: (BuildContext context, index) {
+
+                                  return OutlineButton(
+                                    child: Text("${displayList[index].label}"),
+                                    onPressed: () async {
+                                      showLoader();
+                                      FirebaseUser user = await authService.currentUser();
+                                      //Post feature string to firestore
+                                      Firestore.instance.collection('users').document(user.uid)
+                                          .setData({DateTime.now().millisecondsSinceEpoch.toString()+"_${displayList[index].label}_${displayList[index].accuracy}": "${aggList.toString()}"},merge: true).then((onValue){
+                                        print("DONE!");
+                                        Navigator.pop(context);
+                                        Navigator.pop(context);
+                                        showDialog(context: context, builder: (BuildContext context){
+                                          return AlertDialog(
+                                              content: Container(
+                                                height: 200,
+                                                width: 200,
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                  children: <Widget>[
+                                                    Padding(
+                                                      padding: EdgeInsets.symmetric(vertical: 8),
+                                                      child: Text("Thanks for helping out!", style: TextStyle(fontWeight: FontWeight.bold),),
+                                                    ),
+                                                    IconButton(
+                                                      onPressed: (){
+                                                        Navigator.pop(context);
+                                                      },
+                                                      icon: Icon(Icons.arrow_back,size: 32,),
+                                                    )
+                                                  ],
+                                                ),
+                                              )
+                                          );
+                                        });
+                                      });
+                                    },
+                                  );
+                                }),
+                          ),
+                          IconButton(
+                            onPressed: (){
+                              Navigator.pop(context);
+                            },
+                            icon: Icon(Icons.arrow_back,size: 32,),
+                          )],
+                      ),
+                    )
+                );
+              });
+
+            },
+          ),
+          RaisedButton(child: Text("Play"), onPressed: playLocal,),
+          RaisedButton(child: Text("Pause"), onPressed: pauseLocal,)
+        ],
+      ),
     );
   }
 }
